@@ -1,5 +1,7 @@
+###TODO: Add option for leetspeak; User-Agent Header; gzip
+
 import argparse
-import itertools
+from itertools import product
 import subprocess
 from urllib.parse import urlsplit
 import heapq
@@ -28,16 +30,16 @@ def banner():
 ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═══╝╚══════╝
                                                                                      
 
-""")
+{RESET}""")
 
 leet_map = {
-    'a': ['a', 'A', '@', '4'],
-    'e': ['e', 'E', '3'],
-    'i': ['i', 'I', '1', '!'],
-    'o': ['o', 'O', '0'],
-    's': ['s', 'S', '$', '5'],
-    't': ['t', 'T', '7']
-}
+        'a': ['4', '@'], 'b': ['8'], 'e': ['3'], 'g': ['6', '9'],
+        'i': ['1', '!'], 'l': ['1', '|'], 'o': ['0'], 's': ['5', '$'],
+        't': ['7', '+'], 'z': ['2']
+    }
+
+symbols = ['!', '@', '#', '$', '%','&','*', '?']
+
 def run_command(command):
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -46,7 +48,7 @@ def run_command(command):
         print(f"{BOLD_RED}Error executing command: {e}{RESET}")
         return ""
     
-def top_keys(dictionary, n=15):
+def top_keys(dictionary, n=36): # 12 words per variant ( 3 variants)
     if not dictionary:
         return []
     return heapq.nlargest(n, dictionary, key=dictionary.get)
@@ -62,17 +64,31 @@ def main():
             counter = {}
 
             domain = urlsplit(args.url).netloc
-            run_command(f"cewl -w {domain}.txt {args.url}")
+            print(f"{TEAL}[+] Grabbing most common words from {args.url}...{RESET}")
+            run_command(f"cewl -m 5 -w {domain}.txt {args.url}")
 
-            with open(f'{domain}.txt', 'r') as f:
+            # Gets top 12 (36) most common words found on site
+            with open(f'{domain}.txt', 'r+') as f:
                 words = [line.strip() for line in f.readlines()]
                 for word in words:
-                    word = word.lower()
-                    if word.lower not in counter:
-                        counter[word] = 0
-                    counter[word] += 1
-            print(top_keys(counter))
+                    for variant in (word.lower(), word.upper(), word.title()):
+                        counter[variant] = counter.get(variant, 0) + 1
+                most_common_words = top_keys(counter)
+                print(f'{GREEN}[!] Most Common Words: {', '.join(most_common_words)}{RESET}')
 
+                print(f'{TEAL}[+] Generating Wordlist...{RESET}')
+                # Combines 2 words
+                for combo in product(most_common_words, repeat=2):    
+                    for i in range(0, 100001):
+                        for sym in symbols:
+                            f.write(''.join(combo) + f'{i}' + sym +'\n')
+                    for i in range(0, 100001):
+                        for sym in symbols:
+                            f.write(''.join(combo) + f'{i:06}' + sym + '\n')
+                    f.write(''.join(combo) + '\n')
+                    
+
+                    
     except KeyboardInterrupt:
         print(f"\n{BOLD_RED}Interupted by user ")
 
