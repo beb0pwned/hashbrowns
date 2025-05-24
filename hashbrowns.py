@@ -60,7 +60,7 @@ def top_keys(dictionary, n):
 def main():
     try:
         banner()
-        parser = argparse.ArgumentParser(description="Domain Enumeration and Recon Tool")
+        parser = argparse.ArgumentParser(description="Custom Password List Generator")
 
         parser.add_argument(
             '-u', '--url', 
@@ -96,6 +96,7 @@ def main():
         parser.add_argument(
             '-w', '--words',
             help='Comma-separated words to create a password list from. Cannot be used with -u',
+            default= [],
             type=lambda s: [w.strip() for w in s.split(',')]
         )
         args = parser.parse_args()
@@ -146,6 +147,35 @@ def main():
                                     f.write(''.join(combo) + f'{i}' + sym +'\n')
                                     f.write(''.join(combo) + f'{i:06}' + sym + '\n')
                         f.write(''.join(combo) + '\n')
+
+
+        elif args.words:
+            with open('custom.txt', 'w') as f:
+                words = args.words
+                print(words)
+                single_words = ''.join(words)
+                variants = [single_words.lower(), single_words.upper(), single_words.title()]
+
+                for variant in variants:
+                    print(variants)
+                    # for i in range(0, 100001):
+                    #     f.write(word + f'{i}' + '\n')
+                    #     f.write(word + f'{i:06}' + '\n')
+                    #     if args.symbols:
+                    #         for sym in symbols:
+                    #             f.write(word + f'{i}' + sym + '\n')
+                    #             f.write(word + f'{i:06}' + sym + '\n')
+                    # for combo in product(words, repeat=2):
+                    #     for i in range(0, 100001):
+                    #         f.write(''.join(combo) + f'{i}' +'\n')
+                    #         f.write(''.join(combo) + f'{i:06}' +'\n')
+                    #         if args.symbols:
+                    #             for sym in symbols:
+                    #                 f.write(''.join(combo) + f'{i}' + sym +'\n')
+                    #                 f.write(''.join(combo) + f'{i:06}' + sym + '\n')
+                    #         f.write(''.join(combo) + '\n')
+
+
 
             if args.gzip:
                 print(f"{TEAL}[+] Compressing to {domain}.txt.gz...{RESET}")
