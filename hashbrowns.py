@@ -1,4 +1,4 @@
-###TODO: Add option for leetspeak; User-Agent Header; custom wordlist instead of crawling the webpage, custom blacklist
+###TODO: Add option for leetspeak; User-Agent Header;
 
 import argparse
 from itertools import product
@@ -80,6 +80,22 @@ def generate_lists(filename, words, args):
                         f.write(f"{base}{i:06}{sym}\n")
             f.write(f"{base}\n")
 
+def generate_leet_variations(word):
+    '''Generates leetspeak substitutions for a word.'''
+    def helper(chars):
+        if not chars:
+            return ['']
+        head, *tail = chars
+        tail_variants = helper(tail)
+        results = []
+        # original char
+        results += [head + t for t in tail_variants]
+        # substitutions
+        for sub in leet_map.get(head.lower(), []):
+            results += [sub + t for t in tail_variants]
+        return results
+    return set(helper(list(word)))
+
 def main():
     try:
         banner()
@@ -122,6 +138,12 @@ def main():
             default= [],
             type=lambda s: [w.strip() for w in s.split(',')]
         )
+        parser.add_argument(
+            '-l', '--leet',
+            action='store_true',
+            help='Enable leet speak substitutions'
+        )
+
         args = parser.parse_args()
         blacklist = args.blacklist
 
