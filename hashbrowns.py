@@ -57,6 +57,29 @@ def top_keys(dictionary, n):
         return []
     return heapq.nlargest(n, dictionary, key=dictionary.get)
 
+def generate_lists(filename, words, args):
+    '''Write combinations and variants to file.'''
+    with open(filename, 'w') as f:
+        for word in words:
+            for i in range(0, 100001):
+                f.write(f"{word}{i}\n")
+                f.write(f"{word}{i:06}\n")
+                if args.symbols:
+                    for sym in symbols:
+                        f.write(f"{word}{i}{sym}\n")
+                        f.write(f"{word}{i:06}{sym}\n")
+        # combine pairs
+        for combo in product(words, repeat=2):
+            base = ''.join(combo)
+            for i in range(0, 100001):
+                f.write(f"{base}{i}\n")
+                f.write(f"{base}{i:06}\n")
+                if args.symbols:
+                    for sym in symbols:
+                        f.write(f"{base}{i}{sym}\n")
+                        f.write(f"{base}{i:06}{sym}\n")
+            f.write(f"{base}\n")
+
 def main():
     try:
         banner()
@@ -100,90 +123,52 @@ def main():
             type=lambda s: [w.strip() for w in s.split(',')]
         )
         args = parser.parse_args()
+        blacklist = args.blacklist
+
+
+        if args.url and args.words:
+            parser.error('Cannot use --url and --words together.')
 
         if args.url:
 
-            counter = {}
             domain = urlsplit(args.url).netloc
-            
-
-            print(f"{TEAL}[+] Grabbing most common words from {args.url}...{RESET}")
+            print(f"{TEAL}[+] Crawling {args.url}...{RESET}")
             run_command(f"cewl -m 5 -w {domain}.txt {args.url}")
+            source_file = f"{domain}.txt"
+            with open(source_file, 'r') as f:
+                raw_words = [line.strip() for line in f]
+        else:
+            source_file = 'custom.txt'
+            raw_words = args.words
 
-            # Gets top 12 (36) most common words found on site
-            with open(f'{domain}.txt', 'r+') as f:
-                words = [line.strip() for line in f.readlines()]
-                blacklist = args.blacklist if args.blacklist else []
-                
-                for word in words:
-                    variants = [word.lower(), word.upper(), word.title()]
-                    if any(b in word.lower() for b in blacklist):
-                        continue
-                    for variant in variants:
-                        counter[variant] = counter.get(variant, 0) + 1
-                most_common_words = top_keys(counter, n=args.top * 3)
-            
-                print(f'{GREEN}[!] Most Common Words: {", ".join(most_common_words[2::3])}{RESET}')
+        # Build counter with blacklist filtering
+        counter = {}
+        for w in raw_words:
+            if any(b in w.lower() for b in blacklist):
+                continue
+            for variant in (w.lower(), w.upper(), w.title()):
+                counter[variant] = counter.get(variant, 0) + 1
 
-                if not args.check:
-                    print(f'{TEAL}[+] Generating Wordlist...{RESET}')
+        most_common = top_keys(counter, n=(args.top * (3 if args.url else 1)))
 
-                    for word in most_common_words:
-                        for i in range(0, 100001):
-                            f.write(word + f'{i}' + '\n')
-                            f.write(word + f'{i:06}' + '\n')
-                            if args.symbols:
-                                for sym in symbols:
-                                    f.write(word + f'{i}' + sym + '\n')
-                                    f.write(word + f'{i:06}' + sym + '\n')
+        if args.url and args.check:
+            display = most_common[2::3] if args.url else most_common
+            print(f"{GREEN}[!] Top Words: {', '.join(display)}{RESET}")
+            return
 
-                    # Combines 2 words
-                    for combo in product(most_common_words, repeat=2):    
-                        for i in range(0, 100001):
-                            f.write(''.join(combo) + f'{i}' +'\n')
-                            f.write(''.join(combo) + f'{i:06}' +'\n')
-                            if args.symbols:
-                                for sym in symbols:
-                                    f.write(''.join(combo) + f'{i}' + sym +'\n')
-                                    f.write(''.join(combo) + f'{i:06}' + sym + '\n')
-                        f.write(''.join(combo) + '\n')
-
-
-        elif args.words:
-            with open('custom.txt', 'w') as f:
-                words = args.words
-                print(words)
-                single_words = ''.join(words)
-                variants = [single_words.lower(), single_words.upper(), single_words.title()]
-
-                for variant in variants:
-                    print(variants)
-                    # for i in range(0, 100001):
-                    #     f.write(word + f'{i}' + '\n')
-                    #     f.write(word + f'{i:06}' + '\n')
-                    #     if args.symbols:
-                    #         for sym in symbols:
-                    #             f.write(word + f'{i}' + sym + '\n')
-                    #             f.write(word + f'{i:06}' + sym + '\n')
-                    # for combo in product(words, repeat=2):
-                    #     for i in range(0, 100001):
-                    #         f.write(''.join(combo) + f'{i}' +'\n')
-                    #         f.write(''.join(combo) + f'{i:06}' +'\n')
-                    #         if args.symbols:
-                    #             for sym in symbols:
-                    #                 f.write(''.join(combo) + f'{i}' + sym +'\n')
-                    #                 f.write(''.join(combo) + f'{i:06}' + sym + '\n')
-                    #         f.write(''.join(combo) + '\n')
+        # Generate output
+        print(f"{TEAL}[+] Generating wordlist...{RESET}")
+        generate_lists(source_file, most_common, args)
 
 
 
-            if args.gzip:
-                print(f"{TEAL}[+] Compressing to {domain}.txt.gz...{RESET}")
-                with open(f'{domain}.txt', 'rb') as f_in, gzip.open(f"{domain}.txt.gz", 'wb') as f_out:
-                    f_out.writelines(f_in)
-                if os.path.exists(f'{domain}.txt'):
-                    os.remove(f'{domain}.txt')
-                print(f"{GREEN}[+] Compression complete{RESET}")
+        if args.gzip:
+            print(f"{TEAL}[+] Compressing to {domain}.txt.gz...{RESET}")
+            with open(f'{domain}.txt', 'rb') as f_in, gzip.open(f"{domain}.txt.gz", 'wb') as f_out:
+                f_out.writelines(f_in)
+            if os.path.exists(f'{domain}.txt'):
+                os.remove(f'{domain}.txt')
+            print(f"{GREEN}[+] Compression complete{RESET}")
 
         print(f"{GREEN}[+] Done!{RESET}")
                     
